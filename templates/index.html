@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Yield Monitor Dashboard</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 28px;
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+    }
+
+    .header-title {
+      font-size: 1.4rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+
+    .header-title span.white { color: #e6edf3; }
+    .header-title span.cyan  { color: #00e5ff; }
+
+    .header-actions { display: flex; gap: 10px; }
+
+    .btn {
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: 1px solid #00e5ff;
+      background: transparent;
+      color: #00e5ff;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+    }
+    .btn:hover { background: #00e5ff; color: #0d1117; }
+    .btn.primary { background: #00e5ff; color: #0d1117; }
+    .btn.primary:hover { background: #00b8cc; border-color: #00b8cc; }
+
+    /* ── Main ── */
+    main { padding: 24px 28px; }
+
+    .panels {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      padding: 20px;
+      flex: 1 1 300px;
+    }
+
+    .card-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 4px;
+    }
+
+    .card-subtitle {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #e6edf3;
+      margin-bottom: 16px;
+    }
+
+    /* ── Panel A — Daily ── */
+    #daily-total-label {
+      font-size: 0.85rem;
+      color: #8b949e;
+      margin-bottom: 12px;
+    }
+
+    /* ── Panel B — Pie ── */
+    .pie-wrapper {
+      position: relative;
+      width: 200px;
+      height: 200px;
+      margin: 0 auto 16px;
+    }
+
+    #pie-total-label {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      pointer-events: none;
+      line-height: 1.3;
+    }
+
+    #pie-total-label .label-title {
+      font-size: 0.65rem;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    #pie-total-label .label-count {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #e6edf3;
+    }
+
+    #pie-total-label .label-unit {
+      font-size: 0.65rem;
+      color: #8b949e;
+    }
+
+    .part-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 8px;
+    }
+
+    .part-chips button {
+      padding: 4px 12px;
+      border-radius: 20px;
+      border: 1px solid #30363d;
+      background: #21262d;
+      color: #8b949e;
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .part-chips button:hover,
+    .part-chips button.active {
+      border-color: #00e5ff;
+      color: #00e5ff;
+      background: #0d1f27;
+    }
+
+    /* ── Panel C — Gauge ── */
+    #selected-part-number {
+      font-size: 0.8rem;
+      color: #00e5ff;
+      margin-bottom: 12px;
+    }
+
+    .gauge-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    #yield-gauge {
+      position: relative;
+      width: 160px;
+      height: 160px;
+      border-radius: 50%;
+      background: conic-gradient(#00e5ff 0deg, #21262d 0deg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+      transition: background 0.5s;
+    }
+
+    #yield-gauge::before {
+      content: '';
+      position: absolute;
+      width: 118px;
+      height: 118px;
+      border-radius: 50%;
+      background: #161b22;
+    }
+
+    #yield-value {
+      position: relative;
+      z-index: 1;
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: #00e5ff;
+      transition: color 0.3s;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      width: 100%;
+    }
+
+    .stat-box {
+      background: #21262d;
+      border-radius: 8px;
+      padding: 10px 14px;
+      text-align: center;
+    }
+
+    .stat-box .stat-label {
+      font-size: 0.65rem;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 4px;
+    }
+
+    .stat-box .stat-num {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #e6edf3;
+    }
+
+    /* ── Chatbot ── */
+    .chat-section {
+      margin-top: 24px;
+    }
+
+    .chat-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      padding: 20px;
+    }
+
+    .chat-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 12px;
+    }
+
+    .chat-log {
+      min-height: 80px;
+      max-height: 320px;
+      overflow-y: auto;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .chat-msg { display: flex; flex-direction: column; gap: 3px; }
+
+    .msg-role {
+      font-size: 0.68rem;
+      color: #8b949e;
+      padding: 0 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .chat-msg.user .msg-role { text-align: right; }
+
+    .msg-bubble {
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      max-width: 88%;
+      white-space: pre-wrap;
+      line-height: 1.5;
+      color: #e6edf3;
+    }
+
+    .chat-msg.user .msg-bubble {
+      align-self: flex-end;
+      background: #0d1f27;
+      border: 1px solid #00e5ff44;
+    }
+
+    .chat-msg.assistant .msg-bubble {
+      align-self: flex-start;
+      background: #21262d;
+    }
+
+    .msg-bubble.thinking { color: #8b949e; font-style: italic; }
+
+    .chat-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    #chat-question {
+      flex: 1;
+      padding: 9px 14px;
+      background: #21262d;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      color: #e6edf3;
+      font-size: 0.9rem;
+      outline: none;
+    }
+
+    #chat-question:focus { border-color: #00e5ff; }
+
+    /* ── Modal ── */
+    #manual-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #manual-modal.open { display: flex; }
+
+    .modal-box {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      padding: 28px;
+      width: 380px;
+      max-width: 95vw;
+    }
+
+    .modal-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #e6edf3;
+      margin-bottom: 20px;
+    }
+
+    .form-group {
+      margin-bottom: 14px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.8rem;
+      color: #8b949e;
+      margin-bottom: 5px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .form-group input[type="text"],
+    .form-group select {
+      width: 100%;
+      padding: 9px 12px;
+      background: #21262d;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      color: #e6edf3;
+      font-size: 0.9rem;
+      outline: none;
+    }
+
+    .form-group input[type="text"]:focus,
+    .form-group select:focus { border-color: #00e5ff; }
+
+    .form-group select option { background: #21262d; }
+
+    #timestamp-label {
+      font-size: 0.82rem;
+      color: #8b949e;
+      font-family: monospace;
+    }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .checkbox-row input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: #00e5ff;
+      cursor: pointer;
+    }
+
+    .checkbox-row label {
+      font-size: 0.9rem;
+      color: #e6edf3;
+      cursor: pointer;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+      justify-content: flex-end;
+    }
+
+    #modal-message {
+      font-size: 0.82rem;
+      margin-top: 8px;
+      min-height: 18px;
+    }
+
+    .msg-error { color: #f85149; }
+    .msg-ok    { color: #3fb950; }
+
+    /* ── Script Modal ── */
+    #script-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    #script-modal.open { display: flex; }
+
+    .modal-wide {
+      width: 760px;
+      max-width: 95vw;
+      max-height: 82vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .script-pre {
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 16px;
+      overflow: auto;
+      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+      font-size: 0.78rem;
+      line-height: 1.6;
+      color: #e6edf3;
+      white-space: pre;
+      flex: 1;
+      min-height: 0;
+    }
+
+    /* ── Date filter badge ── */
+    .filter-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #0d1f27;
+      border: 1px solid #00e5ff44;
+      border-radius: 20px;
+      padding: 2px 10px 2px 8px;
+      font-size: 0.75rem;
+      color: #00e5ff;
+    }
+    .filter-badge button {
+      background: none;
+      border: none;
+      color: #00e5ff;
+      cursor: pointer;
+      font-size: 0.85rem;
+      padding: 0;
+      line-height: 1;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ── -->
+<header>
+  <div class="header-title">
+    <span class="white">YIELD </span><span class="cyan">MONITOR</span>
+  </div>
+  <div class="header-actions">
+    <button class="btn" id="manual-test-btn">Manual Test</button>
+    <button class="btn" id="view-api-btn">View API</button>
+    <button class="btn" id="view-script-btn">View Script</button>
+  </div>
+</header>
+
+<!-- ── Main panels ── -->
+<main>
+  <div class="panels">
+
+    <!-- Panel A — Daily Volume -->
+    <div class="card">
+      <div class="card-title">Daily Testing Volume</div>
+      <div id="daily-total-label" class="card-subtitle">Loading…</div>
+      <canvas id="daily-chart" height="180"></canvas>
+    </div>
+
+    <!-- Panel B — Part Distribution -->
+    <div class="card">
+      <div class="card-title">Part Numbers Tested</div>
+      <div id="part-filter-badge" style="margin-bottom:12px;display:none;"></div>
+      <div class="pie-wrapper">
+        <canvas id="part-chart"></canvas>
+        <div id="pie-total-label">
+          <div class="label-title">TOTAL</div>
+          <div class="label-count" id="pie-center-count">0</div>
+          <div class="label-unit">units</div>
+        </div>
+      </div>
+      <div class="part-chips">
+        <button id="part-001PN001" onclick="selectPart('001PN001')">001PN001</button>
+        <button id="part-002PN002" onclick="selectPart('002PN002')">002PN002</button>
+        <button id="part-003PN003" onclick="selectPart('003PN003')">003PN003</button>
+      </div>
+    </div>
+
+    <!-- Panel C — Yield Gauge -->
+    <div class="card">
+      <div class="card-title">Yield Rate</div>
+      <div id="selected-part-number">No part selected</div>
+      <div class="gauge-wrapper">
+        <div id="yield-gauge">
+          <div id="yield-value">—</div>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-box">
+            <div class="stat-label">Tested</div>
+            <div class="stat-num" id="stat-tested">—</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Passed</div>
+            <div class="stat-num" id="stat-passed">—</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Failed</div>
+            <div class="stat-num" id="stat-failed">—</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Yield</div>
+            <div class="stat-num" id="stat-yield">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /.panels -->
+
+  <!-- ── Chatbot ── -->
+  <div class="chat-section">
+    <div class="chat-card">
+      <div class="chat-title">Yield Assistant</div>
+      <div id="chat-log" class="chat-log">
+        <div class="chat-msg assistant">
+          <div class="msg-role">Assistant</div>
+          <div class="msg-bubble">Ask a question below to get insights from live data.</div>
+        </div>
+      </div>
+      <div class="chat-row">
+        <input id="chat-question" type="text" placeholder="e.g. What is the yield for 001PN001?" />
+        <button class="btn primary" id="chat-send-btn">Send</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- ── Manual Test Modal ── -->
+<div id="manual-modal" role="dialog" aria-modal="true" aria-labelledby="modal-heading">
+  <div class="modal-box">
+    <div class="modal-title" id="modal-heading">Manual Testing</div>
+
+    <div class="form-group">
+      <label for="serial-number">Serial Number</label>
+      <input id="serial-number" type="text" placeholder="e.g. SN-001" autocomplete="off" />
+    </div>
+
+    <div class="form-group">
+      <label for="part-number">Part Number</label>
+      <select id="part-number">
+        <option value="001PN001">001PN001</option>
+        <option value="002PN002">002PN002</option>
+        <option value="003PN003">003PN003</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Timestamp</label>
+      <span id="timestamp-label"></span>
+    </div>
+
+    <div class="form-group">
+      <div class="checkbox-row">
+        <input id="status" type="checkbox" />
+        <label for="status">Passed (uncheck = Failed)</label>
+      </div>
+    </div>
+
+    <div id="modal-message"></div>
+
+    <div class="modal-actions">
+      <button class="btn" id="close-modal-btn">Close</button>
+      <button class="btn primary" id="add-test-btn">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Script Viewer Modal ── -->
+<div id="script-modal" role="dialog" aria-modal="true" aria-labelledby="script-modal-heading">
+  <div class="modal-box modal-wide">
+    <div class="modal-header">
+      <div class="modal-title" id="script-modal-heading">test_yield.py</div>
+      <button class="btn" id="close-script-modal-btn">✕ Close</button>
+    </div>
+    <pre id="script-content" class="script-pre">Loading…</pre>
+  </div>
+</div>
+
+<script>
+  // ── Chart instances ──
+  let dailyChart    = null;
+  let partChart     = null;
+  let statsCache    = [];
+  let selectedPart  = null;
+  let dailyDates    = [];
+  let lastBarColors = [];
+  let selectedDate  = null;
+
+  const PART_COLORS = {
+    '001PN001': '#00e5ff',
+    '002PN002': '#ff6b6b',
+    '003PN003': '#ffd93d',
+  };
+
+  // ── Load dashboard data ──
+  async function loadDashboard() {
+    await Promise.all([loadDaily(), loadStats()]);
+  }
+
+  async function loadDaily() {
+    const res  = await fetch('/daily');
+    const data = await res.json();
+
+    dailyDates = data.map(d => d.date);
+    const labels = data.map(d => {
+      const dt = new Date(d.date + 'T00:00:00');
+      return dt.toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
+    });
+    const counts = data.map(d => d.count);
+    const total  = counts.reduce((a, b) => a + b, 0);
+
+    document.getElementById('daily-total-label').textContent =
+      `${total} units / 7 days`;
+
+    lastBarColors = counts.map((_, i) =>
+      i === counts.length - 1 ? '#00e5ff' : '#1a5f7a'
+    );
+
+    const hoverColors = lastBarColors.map(c => c === '#00e5ff' ? '#66f0ff' : '#2a8fa8');
+
+    if (dailyChart) {
+      dailyChart.data.labels = labels;
+      dailyChart.data.datasets[0].data                 = counts;
+      dailyChart.data.datasets[0].backgroundColor      = lastBarColors.slice();
+      dailyChart.data.datasets[0].hoverBackgroundColor = hoverColors.slice();
+      dailyChart.data.datasets[0].borderColor          = lastBarColors.map(() => 'transparent');
+      dailyChart.update();
+    } else {
+      const ctx = document.getElementById('daily-chart').getContext('2d');
+      dailyChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            data: counts,
+            backgroundColor:      lastBarColors.slice(),
+            hoverBackgroundColor: hoverColors.slice(),
+            borderRadius: 4,
+            borderColor: lastBarColors.map(() => 'transparent'),
+            borderWidth: 2,
+          }],
+        },
+        options: {
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                footer: () => 'Click to filter part breakdown',
+              },
+              footerColor: '#8b949e',
+              footerFont: { size: 10 },
+            },
+          },
+          onHover: (event, elements) => {
+            event.native.target.style.cursor = elements.length ? 'pointer' : 'default';
+          },
+          scales: {
+            x: { ticks: { color: '#8b949e' }, grid: { color: '#21262d' } },
+            y: { ticks: { color: '#8b949e' }, grid: { color: '#21262d' }, beginAtZero: true },
+          },
+          onClick: (_, elements) => {
+            if (!elements.length) return;
+            const idx  = elements[0].index;
+            const date = dailyDates[idx];
+            if (selectedDate === date) {
+              clearDateFilter();
+            } else {
+              selectedDate = date;
+              dailyChart.data.datasets[0].backgroundColor =
+                dailyDates.map((_, i) => i === idx ? '#00e5ff' : '#1a5f7a44');
+              dailyChart.data.datasets[0].borderColor =
+                dailyDates.map((_, i) => i === idx ? '#ffffff' : 'transparent');
+              dailyChart.update();
+              loadStatsForDate(date);
+            }
+          },
+        },
+      });
+    }
+  }
+
+  function clearDateFilter() {
+    selectedDate = null;
+    if (dailyChart) {
+      dailyChart.data.datasets[0].backgroundColor = lastBarColors.slice();
+      dailyChart.data.datasets[0].borderColor     = lastBarColors.map(() => 'transparent');
+      dailyChart.update();
+    }
+    document.getElementById('part-filter-badge').style.display = 'none';
+    loadStats();
+  }
+
+  async function loadStatsForDate(date) {
+    const res  = await fetch(`/stats/daily?date=${date}`);
+    const data = await res.json();
+    const label = new Date(date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
+    const badge = document.getElementById('part-filter-badge');
+    badge.style.display = 'inline-flex';
+    badge.innerHTML = `<span class="filter-badge">📅 ${label} <button onclick="clearDateFilter()" title="Show all">✕</button></span>`;
+    updatePieChart(data);
+  }
+
+  async function loadStats() {
+    const res  = await fetch('/stats');
+    statsCache = await res.json();
+    updatePieChart(statsCache);
+  }
+
+  function updatePieChart(stats) {
+    const labels     = stats.map(r => r.part_number);
+    const totals     = stats.map(r => r.total);
+    const colors     = stats.map(r => PART_COLORS[r.part_number] || '#999');
+    const grandTotal = totals.reduce((a, b) => a + b, 0);
+
+    document.getElementById('pie-center-count').textContent = grandTotal;
+
+    if (partChart) {
+      partChart.data.labels = labels;
+      partChart.data.datasets[0].data   = totals;
+      partChart.data.datasets[0].backgroundColor = colors;
+      partChart.data.datasets[0].offset = totals.map(() => 0);
+      partChart.update();
+    } else {
+      const ctx = document.getElementById('part-chart').getContext('2d');
+      partChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels,
+          datasets: [{
+            data: totals,
+            backgroundColor: colors,
+            hoverOffset: 6,
+            borderColor: '#161b22',
+            borderWidth: 2,
+            offset: totals.map(() => 0),
+          }],
+        },
+        options: {
+          cutout: '60%',
+          plugins: {
+            legend: {
+              display: true,
+              position: 'bottom',
+              labels: { color: '#8b949e', boxWidth: 12, font: { size: 11 } },
+            },
+          },
+          onClick: (_, elements) => {
+            if (elements.length > 0) {
+              const idx = elements[0].index;
+              selectPart(statsCache[idx].part_number);
+            }
+          },
+        },
+      });
+    }
+
+    if (selectedPart) {
+      selectPart(selectedPart);
+    }
+  }
+
+  // ── Part selection ──
+  function selectPart(pn) {
+    selectedPart = pn;
+
+    document.querySelectorAll('.part-chips button').forEach(btn => {
+      btn.classList.toggle('active', btn.id === 'part-' + pn);
+    });
+
+    // Highlight matching donut slice — pop selected, dim others
+    if (partChart) {
+      const idx = statsCache.findIndex(r => r.part_number === pn);
+      if (idx !== -1) {
+        partChart.data.datasets[0].offset = statsCache.map((_, i) => i === idx ? 14 : 0);
+        partChart.data.datasets[0].backgroundColor = statsCache.map((r, i) => {
+          const c = PART_COLORS[r.part_number] || '#999999';
+          return i === idx ? c : c + '44';
+        });
+        partChart.update();
+      }
+    }
+
+    updateGauge(pn);
+  }
+
+  function updateGauge(pn) {
+    const row = statsCache.find(r => r.part_number === pn);
+    if (!row) return;
+
+    document.getElementById('selected-part-number').textContent = pn;
+
+    const yp = row.yield_percent;
+    const displayText = row.total === 0 ? '0%' : `${yp}%`;
+
+    document.getElementById('yield-value').textContent = displayText;
+    document.getElementById('stat-tested').textContent = row.total;
+    document.getElementById('stat-passed').textContent = row.passed;
+    document.getElementById('stat-failed').textContent = row.failed;
+    document.getElementById('stat-yield').textContent  = displayText;
+
+    const color = PART_COLORS[pn] || '#00e5ff';
+
+    const deg = Math.round(yp / 100 * 360);
+    const gauge = document.getElementById('yield-gauge');
+    gauge.style.background = `conic-gradient(${color} ${deg}deg, #21262d ${deg}deg)`;
+    document.getElementById('yield-value').style.color = color;
+    document.getElementById('stat-yield').style.color  = color;
+  }
+
+  // ── Modal ──
+  const modal = document.getElementById('manual-modal');
+
+  document.getElementById('manual-test-btn').addEventListener('click', () => {
+    modal.classList.add('open');
+    tickTimestamp();
+  });
+
+  document.getElementById('close-modal-btn').addEventListener('click', () => {
+    modal.classList.remove('open');
+  });
+
+  modal.addEventListener('click', e => {
+    if (e.target === modal) modal.classList.remove('open');
+  });
+
+  let timestampInterval = null;
+
+  function tickTimestamp() {
+    const el = document.getElementById('timestamp-label');
+    if (timestampInterval) clearInterval(timestampInterval);
+    el.textContent = new Date().toISOString().replace('T', ' ').slice(0, 19);
+    timestampInterval = setInterval(() => {
+      el.textContent = new Date().toISOString().replace('T', ' ').slice(0, 19);
+    }, 1000);
+  }
+
+  document.getElementById('add-test-btn').addEventListener('click', async () => {
+    const sn     = document.getElementById('serial-number').value.trim();
+    const pn     = document.getElementById('part-number').value;
+    const passed = document.getElementById('status').checked;
+    const msgEl  = document.getElementById('modal-message');
+
+    if (!sn) {
+      msgEl.textContent = 'Serial number is required.';
+      msgEl.className = 'msg-error';
+      return;
+    }
+
+    try {
+      const res = await fetch('/tests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ serial_number: sn, part_number: pn, status: passed }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        msgEl.textContent = err.detail || 'Insert failed.';
+        msgEl.className = 'msg-error';
+        return;
+      }
+
+      msgEl.textContent = 'Record added.';
+      msgEl.className = 'msg-ok';
+      document.getElementById('serial-number').value = '';
+      document.getElementById('status').checked = false;
+
+      await loadDashboard();
+    } catch (e) {
+      msgEl.textContent = 'Network error. Please try again.';
+      msgEl.className = 'msg-error';
+    }
+  });
+
+  // ── Header buttons ──
+  document.getElementById('view-api-btn').addEventListener('click', () => {
+    window.open('/docs', '_blank');
+  });
+
+  // ── Script modal ──
+  const scriptModal = document.getElementById('script-modal');
+  let scriptLoaded  = false;
+
+  document.getElementById('view-script-btn').addEventListener('click', async () => {
+    scriptModal.classList.add('open');
+    if (!scriptLoaded) {
+      document.getElementById('script-content').textContent = 'Loading…';
+      try {
+        const res  = await fetch('/script');
+        const text = await res.text();
+        document.getElementById('script-content').textContent = text;
+        scriptLoaded = true;
+      } catch {
+        document.getElementById('script-content').textContent = 'Failed to load script.';
+      }
+    }
+  });
+
+  document.getElementById('close-script-modal-btn').addEventListener('click', () => {
+    scriptModal.classList.remove('open');
+  });
+
+  scriptModal.addEventListener('click', e => {
+    if (e.target === scriptModal) scriptModal.classList.remove('open');
+  });
+
+  // ── Chatbot ──
+  let chatHistory = [];
+
+  document.getElementById('chat-send-btn').addEventListener('click', sendChat);
+  document.getElementById('chat-question').addEventListener('keydown', e => {
+    if (e.key === 'Enter') sendChat();
+  });
+
+  async function sendChat() {
+    const input = document.getElementById('chat-question');
+    const q     = input.value.trim();
+    if (!q) return;
+
+    input.value = '';
+    appendChatMsg('user', q);
+    const thinkId = appendChatMsg('assistant', 'Thinking…', true);
+
+    try {
+      const res  = await fetch('/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: q, history: chatHistory }),
+      });
+      const data   = await res.json();
+      const answer = data.answer || 'No response.';
+      updateChatMsg(thinkId, answer);
+      chatHistory.push({ role: 'user', content: q });
+      chatHistory.push({ role: 'assistant', content: answer });
+    } catch {
+      updateChatMsg(thinkId, 'Error contacting chatbot.');
+    }
+  }
+
+  function appendChatMsg(role, text, thinking = false) {
+    const log = document.getElementById('chat-log');
+    const id  = 'cmsg-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+    const div = document.createElement('div');
+    div.className = `chat-msg ${role}`;
+    div.id = id;
+    div.innerHTML =
+      `<div class="msg-role">${role === 'user' ? 'You' : 'Assistant'}</div>` +
+      `<div class="msg-bubble${thinking ? ' thinking' : ''}">${escHtml(text)}</div>`;
+    log.appendChild(div);
+    log.scrollTop = log.scrollHeight;
+    return id;
+  }
+
+  function updateChatMsg(id, text) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const bubble = el.querySelector('.msg-bubble');
+    bubble.textContent = text;
+    bubble.classList.remove('thinking');
+    const log = document.getElementById('chat-log');
+    log.scrollTop = log.scrollHeight;
+  }
+
+  function escHtml(str) {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  // ── Boot ──
+  loadDashboard();
+</script>
+</body>
+</html>
