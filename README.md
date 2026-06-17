@@ -285,3 +285,25 @@ Note: Render free tier uses ephemeral disk — SQLite resets on redeploy. Seed d
 - [ ] Chatbot responds to yield questions
 - [ ] Chatbot maintains conversation history across messages
 - [ ] Selenium test prints `PASS`
+
+---
+
+## Lessons Learned
+
+### Replit: git pull fails with "divergent branches"
+
+**Symptom:**
+```
+fatal: Need to specify how to reconcile divergent branches.
+```
+
+**Cause:** Remote was force-pushed. Replit also auto-commits a "Published your App" commit to `.replit`, creating local divergence.
+
+**Fix — discard local, take remote:**
+```bash
+git rebase --abort        # if mid-rebase
+git fetch origin
+git reset --hard origin/master
+```
+
+**Why not `git pull --rebase`?** Replit's auto-commit conflicts with `.replit` on the remote. Rebase stalls on that conflict. `reset --hard` is cleaner — the auto-commit carries no meaningful work.

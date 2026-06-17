@@ -5,6 +5,7 @@ Usage:
     python static/test_yield.py [http://localhost:8000]
 """
 
+import sqlite3
 import sys
 import time
 
@@ -25,7 +26,19 @@ RECORDS = [
 ]
 
 
+def clear_part_records(part_number: str, db_path: str = "yield_monitor.db") -> int:
+    conn = sqlite3.connect(db_path)
+    cur = conn.execute("DELETE FROM manual_tests WHERE part_number = ?", (part_number,))
+    deleted = cur.rowcount
+    conn.commit()
+    conn.close()
+    return deleted
+
+
 def run():
+    deleted = clear_part_records(PART_NUMBER)
+    print(f"Cleared {deleted} existing records for {PART_NUMBER}")
+
     options = webdriver.ChromeOptions()
     options.add_argument("--headless=new")
     options.add_argument("--no-sandbox")
