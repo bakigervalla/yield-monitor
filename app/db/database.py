@@ -1,5 +1,5 @@
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 
 DB_PATH = "yield_monitor.db"
 
@@ -129,15 +129,37 @@ def seed_db():
         conn.close()
         return
 
-    today = datetime.utcnow()
-    records = [
-        *[("SN-A{:03d}".format(i), "001PN001", True,  today - timedelta(days=6-i%7, hours=i)) for i in range(16)],
-        *[("SN-A{:03d}".format(i+16), "001PN001", False, today - timedelta(days=i%4, hours=i+2)) for i in range(4)],
-        *[("SN-B{:03d}".format(i), "002PN002", True,  today - timedelta(days=6-i%7, hours=i+1)) for i in range(23)],
-        *[("SN-B{:03d}".format(i+23), "002PN002", False, today - timedelta(days=i%3, hours=i+5)) for i in range(2)],
-        *[("SN-C{:03d}".format(i), "003PN003", True,  today - timedelta(days=6-i%7, hours=i+3)) for i in range(11)],
-        *[("SN-C{:03d}".format(i+11), "003PN003", False, today - timedelta(days=i%5, hours=i+1)) for i in range(9)],
+    today = datetime.utcnow().date()
+    day_plans = [
+        {"001PN001": (2, 1), "002PN002": (3, 0), "003PN003": (1, 1)},
+        {"001PN001": (3, 0), "002PN002": (4, 0), "003PN003": (2, 1)},
+        {"001PN001": (2, 1), "002PN002": (3, 1), "003PN003": (1, 1)},
+        {"001PN001": (3, 0), "002PN002": (4, 0), "003PN003": (1, 2)},
+        {"001PN001": (2, 1), "002PN002": (3, 0), "003PN003": (2, 1)},
+        {"001PN001": (3, 0), "002PN002": (3, 1), "003PN003": (2, 1)},
+        {"001PN001": (1, 1), "002PN002": (3, 0), "003PN003": (2, 2)},
     ]
+    serial_prefixes = {
+        "001PN001": "SN-A",
+        "002PN002": "SN-B",
+        "003PN003": "SN-C",
+    }
+    serial_counts = {part_number: 1 for part_number in ALLOWED_PART_NUMBERS}
+    records = []
+
+    for day_index, plan in enumerate(day_plans):
+        record_date = today - timedelta(days=6 - day_index)
+        timestamp = datetime.combine(record_date, time(hour=8))
+
+        for part_number in ALLOWED_PART_NUMBERS:
+            passed_count, failed_count = plan[part_number]
+            statuses = [True] * passed_count + [False] * failed_count
+
+            for status in statuses:
+                serial_number = f"{serial_prefixes[part_number]}{serial_counts[part_number]:03d}"
+                records.append((serial_number, part_number, status, timestamp))
+                serial_counts[part_number] += 1
+                timestamp += timedelta(minutes=17)
 
     conn.executemany(
         "INSERT INTO manual_tests (serial_number, part_number, timestamp, status) VALUES (?, ?, ?, ?)",
